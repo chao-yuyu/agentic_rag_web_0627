@@ -349,10 +349,6 @@ class JSONVectorDB:
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 創建 Pull Request
 
-## 授權協議
-
-本專案採用 MIT 授權協議。詳見 [LICENSE](LICENSE) 文件。
-
 ## 致謝
 
 感謝以下開源專案的支持：

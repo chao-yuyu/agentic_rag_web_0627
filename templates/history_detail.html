@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歷史查詢紀錄</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .history-item { cursor: pointer; }
+        .history-detail { display: none; margin-top: 1em; }
+        .markdown-content { line-height: 1.6; }
+        .cot-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        .cot-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+        }
+        .cot-content {
+            display: none;
+            padding: 10px;
+            border-top: 1px solid #dee2e6;
+            margin-top: 5px;
+        }
+        .cot-content.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+        <div class="navbar-brand">
+            <img src="/static/ASRock-Industrial.png" alt="ASRock Industrial Logo" style="height: 80px; margin-right: 10px; vertical-align: top;">
+        </div>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">查詢</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/manage">文檔管理</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/history">歷史查詢</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div class="container mt-4">
+    <button class="btn btn-secondary mb-3" onclick="window.location.href='/history'"><i class="bi bi-arrow-left"></i> 返回</button>
+    <h3>歷史查詢紀錄詳情</h3>
+    <div class="mb-2"><b>問題：</b><span id="questionText"></span></div>
+    <div class="mb-2"><b>時間區間：</b><span id="dateRangeText"></span></div>
+    <div class="mb-2"><b>查詢時間：</b><span id="timestampText"></span></div>
+    <hr>
+    <div id="searchStep" class="process-step">
+        <div class="d-flex align-items-center justify-content-between" style="cursor:pointer;" onclick="toggleStep('search')">
+            <h6 class="mb-0">1. 搜索相關文檔</h6>
+            <i class="bi bi-chevron-up" id="chevron-search"></i>
+        </div>
+        <div id="searchResults" class="mt-2 step-content"></div>
+    </div>
+    <div id="filterStep" class="process-step">
+        <div class="d-flex align-items-center justify-content-between" style="cursor:pointer;" onclick="toggleStep('filter')">
+            <h6 class="mb-0">2. 篩選相關文檔</h6>
+            <i class="bi bi-chevron-up" id="chevron-filter"></i>
+        </div>
+        <div id="filterResults" class="mt-2 step-content"></div>
+    </div>
+    <div id="answerStep" class="process-step">
+        <div class="d-flex align-items-center justify-content-between" style="cursor:pointer;" onclick="toggleStep('answer')">
+            <h6 class="mb-0">3. 生成答案</h6>
+            <i class="bi bi-chevron-up" id="chevron-answer"></i>
+        </div>
+        <div id="answerResult" class="mt-2 step-content"></div>
+    </div>
+</div>
+
+<!-- 文檔內容彈跳視窗 Modal -->
+<div class="modal fade" id="documentModal" tabindex="-1" aria-labelledby="documentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="documentModalLabel">文檔內容</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="documentContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 篩選交互訊息彈跳視窗 Modal -->
+<div class="modal fade" id="filterInteractionModal" tabindex="-1" aria-labelledby="filterInteractionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterInteractionModalLabel">篩選交互過程</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="filterInteractionContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+function formatDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts * 1000);
+    return d.toLocaleString('zh-TW');
+}
+function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, function (c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c];
+    });
+}
+function toggleStep(step) {
+    const content = document.getElementById(
+        step === 'search' ? 'searchResults' :
+        step === 'filter' ? 'filterResults' : 'answerResult'
+    );
+    const chevron = document.getElementById('chevron-' + step);
+    if (content.classList.contains('d-none')) {
+        content.classList.remove('d-none');
+        chevron.classList.remove('bi-chevron-down');
+        chevron.classList.add('bi-chevron-up');
+    } else {
+        content.classList.add('d-none');
+        chevron.classList.remove('bi-chevron-up');
+        chevron.classList.add('bi-chevron-down');
+    }
+}
+function toggleCot(id) {
+    const content = document.getElementById(`cot-${id}`);
+    if (!content) return;
+    const header = content.previousElementSibling;
+    const icon = header.querySelector('.bi-chevron-down, .bi-chevron-up');
+    content.classList.toggle('show');
+    if (icon) {
+        icon.classList.toggle('bi-chevron-down');
+        icon.classList.toggle('bi-chevron-up');
+    }
+}
+function processAnswer(answer) {
+    const cotRegex = /<think>(.*?)<\/think>/gs;
+    let processedAnswer = answer;
+    let cotCount = 0;
+    processedAnswer = processedAnswer.replace(cotRegex, (match, content) => {
+        cotCount++;
+        const paragraphs = content.split('\n').filter(p => p.trim());
+        const formattedContent = paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+        return `\n<div class=\"cot-section\">\n  <div class=\"cot-header\" onclick=\"toggleCot(${cotCount})\">\n    <span><i class=\"bi bi-lightbulb\"></i> 思考過程</span>\n    <i class=\"bi bi-chevron-down\"></i>\n  </div>\n  <div class=\"cot-content\" id=\"cot-${cotCount}\">\n    ${formattedContent}\n  </div>\n</div>\n`;
+    });
+    const remainingContent = processedAnswer.replace(/<think>.*?<\/think>/gs, '').trim();
+    return marked.parse(remainingContent);
+}
+function processFilterInteractionContent(content) {
+    const cotRegex = /<think>(.*?)<\/think>/gs;
+    let cotCount = 0;
+    let cotSections = '';
+    content.replace(cotRegex, (match, thinkContent) => {
+        cotCount++;
+        const paragraphs = thinkContent.split('\n').filter(p => p.trim());
+        const formattedContent = paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+        cotSections += `\n<div class=\"cot-section\">\n  <div class=\"cot-header\" onclick=\"toggleCot('filter-${cotCount}')\">\n    <span><i class=\"bi bi-lightbulb\"></i> 思考過程</span>\n    <i class=\"bi bi-chevron-down\"></i>\n  </div>\n  <div class=\"cot-content\" id=\"cot-filter-${cotCount}\">\n    ${formattedContent}\n  </div>\n</div>\n`;
+        return match;
+    });
+    const remainingContent = content.replace(/<think>.*?<\/think>/gs, '').trim();
+    return `\n${cotSections}\n<pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${remainingContent}</pre>\n`;
+}
+marked.setOptions({
+    breaks: true,
+    gfm: true,
+    headerIds: false,
+    mangle: false
+});
+window.onload = async function() {
+    const historyId = "{{ history_id }}";
+    const resp = await fetch('/api/history/' + historyId);
+    const data = await resp.json();
+    const container = document.getElementById('historyDetail');
+    if (data.error) {
+        document.getElementById('searchResults').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        return;
+    }
+    document.getElementById('questionText').innerText = data.question || '';
+    document.getElementById('dateRangeText').innerText = data.date_range || '';
+    document.getElementById('timestampText').innerText = formatDate(data.timestamp);
+    // 搜索相關文檔
+    const searchList = data.steps && data.steps.search ? data.steps.search : [];
+    if (searchList.length > 0) {
+        document.getElementById('searchResults').innerHTML = searchList.map(doc => `
+            <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-file-earmark-text file-icon"></i>
+                <a href="#" class="document-link" 
+                   data-original-filename="${doc.original_filename}"
+                   data-chunk-id="${doc.chunk_id}">${doc.original_filename}</a>
+                <span class="badge bg-info ms-2 similarity-badge">相似度: ${(doc.similarity * 100).toFixed(1)}%</span>
+                ${doc.timestamp ? `<span class="badge bg-secondary ms-2">${doc.timestamp.substring(0,4)}/${doc.timestamp.substring(4,6)}/${doc.timestamp.substring(6,8)}</span>` : ''}
+            </div>
+        `).join('');
+    } else {
+        document.getElementById('searchResults').innerHTML = `<div class="alert alert-warning">沒有找到相關文檔</div>`;
+    }
+    // 綁定文檔內容彈窗
+    document.querySelectorAll('.document-link').forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const originalFilename = e.target.dataset.originalFilename;
+            const chunkId = parseInt(e.target.dataset.chunkId);
+            if (isNaN(chunkId)) {
+                alert('無法獲取文檔段落信息');
+                return;
+            }
+            try {
+                const response = await fetch(`/api/document_content/${encodeURIComponent(originalFilename)}?chunk_id=${chunkId}`);
+                const docData = await response.json();
+                if (response.ok) {
+                    document.getElementById('documentModalLabel').innerText = `文檔內容: ${originalFilename} (段落 ${chunkId})`;
+                    const contentDiv = document.getElementById('documentContent');
+                    contentDiv.innerHTML = '';
+                    const fileTypeBadge = document.createElement('span');
+                    fileTypeBadge.className = 'badge bg-info mb-3';
+                    fileTypeBadge.textContent = `文件類型: ${docData.file_type}`;
+                    contentDiv.appendChild(fileTypeBadge);
+                    const contentPre = document.createElement('pre');
+                    contentPre.style.whiteSpace = 'pre-wrap';
+                    contentPre.style.wordWrap = 'break-word';
+                    contentPre.textContent = docData.content;
+                    contentDiv.appendChild(contentPre);
+                    const documentModal = new bootstrap.Modal(document.getElementById('documentModal'));
+                    documentModal.show();
+                } else {
+                    alert(docData.error || '獲取文檔內容失敗');
+                }
+            } catch (error) {
+                alert(`加載文檔內容時發生錯誤: ${error.message}`);
+            }
+        });
+    });
+    // 篩選相關文檔
+    const filterList = data.steps && data.steps.filter ? data.steps.filter : [];
+    if (filterList.length > 0) {
+        document.getElementById('filterResults').innerHTML = filterList.map((doc, index) => `
+            <div class="d-flex align-items-center mb-2">
+                <div class="me-2">
+                    <span class="badge bg-primary rounded-circle">${index + 1}</span>
+                </div>
+                <i class="bi bi-file-earmark-text file-icon"></i>
+                <a href="#" class="filter-interaction-link" 
+                   data-filename="${doc.original_filename}"
+                   data-chunk-id="${doc.chunk_id}">${doc.original_filename}</a>
+            </div>
+        `).join('');
+    } else {
+        document.getElementById('filterResults').innerHTML = `<div class="alert alert-warning">沒有找到足夠相關的文檔</div>`;
+    }
+    // 綁定篩選交互點擊事件
+    document.querySelectorAll('.filter-interaction-link').forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const filename = e.target.dataset.filename;
+            const chunkId = parseInt(e.target.dataset.chunkId);
+            const taskId = data.task_id;
+            if (!taskId) {
+                alert('無法獲取任務信息');
+                return;
+            }
+            try {
+                const response = await fetch(`/api/filter_interaction/${encodeURIComponent(filename)}?chunk_id=${chunkId}&task_id=${taskId}`);
+                const interactionData = await response.json();
+                if (response.ok) {
+                    document.getElementById('filterInteractionModalLabel').innerText = `篩選交互過程: ${filename} (段落 ${chunkId})`;
+                    const contentDiv = document.getElementById('filterInteractionContent');
+                    contentDiv.innerHTML = '';
+                    const relevanceBadge = document.createElement('span');
+                    relevanceBadge.className = `badge ${interactionData.is_relevant ? 'bg-success' : 'bg-danger'} mb-3`;
+                    relevanceBadge.textContent = interactionData.is_relevant ? '相關' : '不相關';
+                    contentDiv.appendChild(relevanceBadge);
+                    interactionData.messages.forEach((message, index) => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = 'mb-3 p-3 border rounded';
+                        messageDiv.style.backgroundColor = message.role === 'user' ? '#f8f9fa' : '#e3f2fd';
+                        if (message.role === 'assistant') {
+                            const processedContent = processFilterInteractionContent(message.content);
+                            messageDiv.innerHTML = `
+                                <span class="badge bg-success mb-2">DocumentFilter Agent分析</span>
+                                ${processedContent}
+                            `;
+                        } else {
+                            messageDiv.innerHTML = `
+                                <span class="badge bg-primary mb-2">User Agent詢問</span>
+                                <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${message.content}</pre>
+                            `;
+                        }
+                        contentDiv.appendChild(messageDiv);
+                    });
+                    const filterInteractionModal = new bootstrap.Modal(document.getElementById('filterInteractionModal'));
+                    filterInteractionModal.show();
+                } else {
+                    alert(interactionData.error || '獲取篩選交互訊息失敗');
+                }
+            } catch (error) {
+                alert(`加載篩選交互訊息時發生錯誤: ${error.message}`);
+            }
+        });
+    });
+    // 生成答案
+    document.getElementById('answerResult').innerHTML = `
+        <div class="alert alert-success markdown-content">
+            ${processAnswer(data.steps && data.steps.answer ? data.steps.answer : '')}
+        </div>
+    `;
+};
+</script>
+</body>
+</html> 

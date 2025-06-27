@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歷史查詢紀錄</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .history-item { cursor: pointer; }
+        .history-detail { display: none; margin-top: 1em; }
+        .markdown-content { line-height: 1.6; }
+        .cot-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        .cot-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+        }
+        .cot-content {
+            display: none;
+            padding: 10px;
+            border-top: 1px solid #dee2e6;
+            margin-top: 5px;
+        }
+        .cot-content.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+        <div class="navbar-brand">
+            <img src="/static/ASRock-Industrial.png" alt="ASRock Industrial Logo" style="height: 80px; margin-right: 10px; vertical-align: top;">
+        </div>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">查詢</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/manage">文檔管理</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/history">歷史查詢</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div class="container mt-4">
+    <h3>歷史查詢紀錄</h3>
+    <div class="mb-3 d-flex align-items-center">
+        <div class="form-check me-3">
+            <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+            <label class="form-check-label" for="selectAllCheckbox">全選</label>
+        </div>
+        <button class="btn btn-danger btn-sm" id="deleteSelectedBtn" disabled>
+            <i class="bi bi-trash"></i> 刪除所選
+        </button>
+    </div>
+    <div id="historyList" class="mt-4"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+function formatDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts * 1000);
+    return d.toLocaleString('zh-TW');
+}
+function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, function (c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c];
+    });
+}
+function toggleCot(id, event) {
+    if (event) event.stopPropagation();
+    const content = document.getElementById(`cot-${id}`);
+    if (!content) return;
+    const header = content.previousElementSibling;
+    const icon = header.querySelector('.bi-chevron-down, .bi-chevron-up');
+    content.classList.toggle('show');
+    if (icon) {
+        icon.classList.toggle('bi-chevron-down');
+        icon.classList.toggle('bi-chevron-up');
+    }
+}
+function processAnswer(answer) {
+    const cotRegex = /<think>(.*?)<\/think>/gs;
+    let processedAnswer = answer;
+    let cotCount = 0;
+    processedAnswer = processedAnswer.replace(cotRegex, (match, content) => {
+        cotCount++;
+        const paragraphs = content.split('\n').filter(p => p.trim());
+        const formattedContent = paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+        return `\n<div class=\"cot-section\">\n  <div class=\"cot-header\" onclick=\"toggleCot(${cotCount}, event)\">\n    <span><i class=\"bi bi-lightbulb\"></i> 思考過程</span>\n    <i class=\"bi bi-chevron-down\"></i>\n  </div>\n  <div class=\"cot-content\" id=\"cot-${cotCount}\">\n    ${formattedContent}\n  </div>\n</div>\n`;
+    });
+    const remainingContent = processedAnswer.replace(/<think>.*?<\/think>/gs, '').trim();
+    return marked.parse(remainingContent);
+}
+marked.setOptions({
+    breaks: true,
+    gfm: true,
+    headerIds: false,
+    mangle: false
+});
+function renderHistoryList(list) {
+    const container = document.getElementById('historyList');
+    if (!list.length) {
+        container.innerHTML = '<div class="alert alert-info">尚無歷史紀錄</div>';
+        return;
+    }
+    container.innerHTML = list.map(item => `
+        <div class="card mb-3 history-item d-flex flex-row align-items-center" data-id="${item.filename}">
+            <div class="form-check ms-3">
+                <input class="form-check-input history-checkbox" type="checkbox" value="${item.filename}" id="history-${item.filename}">
+            </div>
+            <div class="card-body flex-grow-1" style="cursor:pointer;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <b>問題：</b>${escapeHtml(item.question || '')}
+                        <span class="badge bg-secondary ms-2">${item.date_range || ''}</span>
+                    </div>
+                    <div><small class="text-muted">${formatDate(item.timestamp)}</small></div>
+                </div>
+                <div class="history-detail" id="detail-${item.filename}"></div>
+            </div>
+            <button class="btn btn-danger btn-sm me-3 delete-history-btn" data-filename="${item.filename}"><i class="bi bi-trash"></i></button>
+        </div>
+    `).join('');
+    document.querySelectorAll('.history-item .card-body').forEach(card => {
+        card.addEventListener('click', function() {
+            const id = this.parentElement.getAttribute('data-id');
+            window.location.href = '/history/' + id;
+        });
+    });
+    document.querySelectorAll('.delete-history-btn').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            const filename = this.getAttribute('data-filename');
+            if (!confirm('確定要刪除此歷史紀錄？')) return;
+            const resp = await fetch(`/api/history/${filename}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (resp.ok) {
+                alert('刪除成功');
+                loadHistoryList();
+            } else {
+                alert(data.error || '刪除失敗');
+            }
+        });
+    });
+    document.querySelectorAll('.history-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateDeleteButtonState);
+    });
+}
+function updateDeleteButtonState() {
+    const checked = document.querySelectorAll('.history-checkbox:checked');
+    document.getElementById('deleteSelectedBtn').disabled = checked.length === 0;
+    const all = document.querySelectorAll('.history-checkbox');
+    document.getElementById('selectAllCheckbox').checked = all.length > 0 && checked.length === all.length;
+}
+document.getElementById('selectAllCheckbox').addEventListener('change', function() {
+    const checked = this.checked;
+    document.querySelectorAll('.history-checkbox').forEach(cb => { cb.checked = checked; });
+    updateDeleteButtonState();
+});
+document.getElementById('deleteSelectedBtn').addEventListener('click', async function() {
+    const checked = Array.from(document.querySelectorAll('.history-checkbox:checked')).map(cb => cb.value);
+    if (!checked.length) return;
+    if (!confirm(`確定要刪除所選的 ${checked.length} 筆歷史紀錄？`)) return;
+    const resp = await fetch('/api/history/batch', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filenames: checked })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+        alert('批次刪除成功');
+        loadHistoryList();
+    } else {
+        alert(data.error || '批次刪除失敗');
+    }
+});
+async function loadHistoryList() {
+    const resp = await fetch('/api/history/list');
+    const list = await resp.json();
+    renderHistoryList(list);
+    updateDeleteButtonState();
+}
+window.onload = loadHistoryList;
+</script>
+</body>
+</html> 

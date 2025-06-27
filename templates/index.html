@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSD AI 助手</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .process-step {
+            border-left: 3px solid #dee2e6;
+            padding-left: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .process-step::before {
+            content: '';
+            position: absolute;
+            left: -9px;
+            top: 0;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #0d6efd;
+        }
+        .process-step.active {
+            border-left-color: #0d6efd;
+        }
+        .process-step.completed {
+            border-left-color: #198754;
+        }
+        .process-step.completed::before {
+            background: #198754;
+        }
+        .file-icon {
+            font-size: 1.2rem;
+            margin-right: 5px;
+        }
+        .similarity-badge {
+            font-size: 0.8rem;
+        }
+        .cot-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        .cot-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+        }
+        .cot-content {
+            display: none;
+            padding: 10px;
+            border-top: 1px solid #dee2e6;
+            margin-top: 5px;
+        }
+        .cot-content.show {
+            display: block;
+        }
+        .markdown-content {
+            line-height: 1.6;
+        }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+        .markdown-content code {
+            background-color: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .markdown-content pre {
+            background-color: #f8f9fa;
+            padding: 1em;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .markdown-content blockquote {
+            border-left: 4px solid #dee2e6;
+            padding-left: 1em;
+            margin-left: 0;
+            color: #6c757d;
+        }
+        
+        /* 篩選互動相關樣式 */
+        .filter-progress, .filter-thought, .filter-result {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        .filter-thought {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        
+        .filter-result {
+            background-color: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.15em;
+        }
+        .step-content.d-none {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <div class="navbar-brand">
+                <img src="/static/ASRock-Industrial.png" alt="ASRock Industrial Logo" style="height: 80px; margin-right: 10px; vertical-align: top;">
+            </div>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">查詢</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/manage">文檔管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history">歷史查詢</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">請輸入您的問題</h5>
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <textarea class="form-control" id="question" rows="3" placeholder="在此輸入您的問題..."></textarea>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="dateRange" class="form-label">時間區間</label>
+                                    <input type="text" class="form-control" id="dateRange" placeholder="選擇時間區間" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-search"></i> 查詢
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card mt-4 d-none" id="processCard">
+                    <div class="card-body">
+                        <h5 class="card-title">處理過程</h5>
+                        <div id="processSteps">
+                            <div class="process-step" id="searchStep">
+                                <div class="d-flex align-items-center justify-content-between" style="cursor:pointer;" onclick="toggleStep('search')">
+                                    <h6 class="mb-0">1. 搜索相關文檔</h6>
+                                    <i class="bi bi-chevron-up" id="chevron-search"></i>
+                                </div>
+                                <div id="searchResults" class="mt-2 step-content"></div>
+                            </div>
+                            <div class="process-step" id="filterStep">
+                                <div class="d-flex align-items-center justify-content-between" style="cursor:pointer;" onclick="toggleStep('filter')">
+                                    <h6 class="mb-0">2. 篩選相關文檔</h6>
+                                    <i class="bi bi-chevron-up" id="chevron-filter"></i>
+                                </div>
+                                <div id="filterResults" class="mt-2 step-content"></div>
+                            </div>
+                            <div class="process-step" id="answerStep">
+                                <div class="d-flex align-items-center justify-content-between" style="cursor:pointer;" onclick="toggleStep('answer')">
+                                    <h6 class="mb-0">3. 生成答案</h6>
+                                    <i class="bi bi-chevron-up" id="chevron-answer"></i>
+                                </div>
+                                <div id="answerResult" class="mt-2 step-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文檔內容彈跳視窗 Modal -->
+    <div class="modal fade" id="documentModal" tabindex="-1" aria-labelledby="documentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="documentModalLabel">文檔內容</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="documentContent"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 篩選交互訊息彈跳視窗 Modal -->
+    <div class="modal fade" id="filterInteractionModal" tabindex="-1" aria-labelledby="filterInteractionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="filterInteractionModalLabel">篩選交互過程</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="filterInteractionContent"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <script>
+        // 將 toggleCot 函數移到全局作用域
+        function toggleCot(id) {
+            const content = document.getElementById(`cot-${id}`);
+            if (!content) return; // 如果找不到元素，直接返回
+            
+            const header = content.previousElementSibling;
+            const icon = header.querySelector('.bi-chevron-down, .bi-chevron-up');
+            
+            content.classList.toggle('show');
+            if (icon) {
+                icon.classList.toggle('bi-chevron-down');
+                icon.classList.toggle('bi-chevron-up');
+            }
+        }
+
+        // 將 toggleStep 函數移到全局作用域
+        function toggleStep(step) {
+            const content = document.getElementById(
+                step === 'search' ? 'searchResults' :
+                step === 'filter' ? 'filterResults' : 'answerResult'
+            );
+            const chevron = document.getElementById('chevron-' + step);
+            if (content.classList.contains('d-none')) {
+                content.classList.remove('d-none');
+                chevron.classList.remove('bi-chevron-down');
+                chevron.classList.add('bi-chevron-up');
+            } else {
+                content.classList.add('d-none');
+                chevron.classList.remove('bi-chevron-up');
+                chevron.classList.add('bi-chevron-down');
+            }
+        }
+
+        // 初始化日期範圍選擇器
+        $(document).ready(function() {
+            // 添加頁面刷新處理
+            let currentEventSource = null;
+            let currentTaskId = null;  // 添加任務ID追蹤
+            
+            // 在頁面卸載前清理 EventSource
+            window.addEventListener('beforeunload', function() {
+                if (currentEventSource) {
+                    currentEventSource.close();
+                    currentEventSource = null;
+                }
+            });
+            
+            $('#dateRange').daterangepicker({
+                autoUpdateInput: false,
+                locale: {
+                    format: 'YYYYMMDD',
+                    applyLabel: '確定',
+                    cancelLabel: '清除',
+                    fromLabel: '從',
+                    toLabel: '至',
+                    customRangeLabel: '自訂',
+                    daysOfWeek: ['日', '一', '二', '三', '四', '五', '六'],
+                    monthNames: ['一月', '二月', '三月', '四月', '五月', '六月',
+                                '七月', '八月', '九月', '十月', '十一月', '十二月'],
+                    firstDay: 1
+                },
+                ranges: {
+                   '最近一個月': [moment().subtract(1, 'month'), moment()],
+                   '最近三個月': [moment().subtract(3, 'month'), moment()],
+                   '最近半年': [moment().subtract(6, 'month'), moment()],
+                   '最近一年': [moment().subtract(1, 'year'), moment()],
+                   '最近二年': [moment().subtract(2, 'year'), moment()],
+                   '最近三年': [moment().subtract(3, 'year'), moment()],
+                   '所有時間': [moment(), moment()]
+                }
+            });
+
+            $('#dateRange').on('apply.daterangepicker', function(ev, picker) {
+                if (picker.chosenLabel === '所有時間') {
+                    $(this).val('all time');
+                } else {
+                    $(this).val(picker.startDate.format('YYYYMMDD') + ' - ' + picker.endDate.format('YYYYMMDD'));
+                }
+            });
+
+            $('#dateRange').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
+            });
+
+            const questionTextarea = document.getElementById('question');
+            const submitBtn = document.getElementById('submitBtn');
+
+            questionTextarea.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault(); // 阻止默認的換行行為
+                    submitBtn.click(); // 觸發提交按鈕的點擊事件
+                }
+            });
+
+            submitBtn.addEventListener('click', async () => {
+                const question = questionTextarea.value.trim();
+                const date_range = document.getElementById('dateRange').value.trim();
+                
+                if (!question) {
+                    alert('請輸入問題');
+                    return;
+                }
+
+                if (!date_range) {
+                    alert('請選擇時間區間');
+                    return;
+                }
+
+                // 如果存在之前的 EventSource，先關閉它
+                if (currentEventSource) {
+                    currentEventSource.close();
+                    currentEventSource = null;
+                }
+
+                // 禁用輸入框、按鈕和時間區間選擇器
+                questionTextarea.disabled = true;
+                submitBtn.disabled = true;
+                $('#dateRange').prop('disabled', true);
+
+                // 重置處理過程
+                document.getElementById('processCard').classList.remove('d-none');
+                document.getElementById('searchResults').innerHTML = '';
+                document.getElementById('filterResults').innerHTML = '';
+                document.getElementById('answerResult').innerHTML = '';
+                
+                // 重置步驟狀態
+                ['searchStep', 'filterStep', 'answerStep'].forEach(step => {
+                    document.getElementById(step).classList.remove('active', 'completed');
+                });
+
+                try {
+                    // 顯示搜索步驟
+                    document.getElementById('searchStep').classList.add('active');
+                    document.getElementById('searchResults').innerHTML = '<div class="text-muted">正在搜索相關文檔...</div>';
+                    
+                    // 建立 EventSource 連接，加入時間區間參數
+                    currentEventSource = new EventSource(`/api/query/stream?question=${encodeURIComponent(question)}&date_range=${encodeURIComponent(date_range)}`);
+                    
+                    currentEventSource.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        
+                        switch(data.step) {
+                            case 'task_id':
+                                // 保存任務ID
+                                currentTaskId = data.task_id;
+                                break;
+                                
+                            case 'search':
+                                // 更新搜索結果
+                                document.getElementById('searchStep').classList.remove('active');
+                                document.getElementById('searchStep').classList.add('completed');
+                                
+                                if (data.results && data.results.length > 0) {
+                                    document.getElementById('searchResults').innerHTML = `
+                                        <div class="mb-3">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-robot text-primary me-2"></i>
+                                                <small class="text-muted">Agent: 正在分析問題並搜索相關文檔...</small>
+                                            </div>
+                                        </div>
+                                        ${data.results.map(doc => `
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-file-earmark-text file-icon"></i>
+                                                <a href="#" class="document-link" 
+                                                   data-original-filename="${doc.original_filename}"
+                                                   data-chunk-id="${doc.chunk_id}">${doc.original_filename}</a>
+                                                <span class="badge bg-info ms-2 similarity-badge">相似度: ${(doc.similarity * 100).toFixed(1)}%</span>
+                                                ${doc.timestamp ? `<span class="badge bg-secondary ms-2">${doc.timestamp.substring(0,4)}/${doc.timestamp.substring(4,6)}/${doc.timestamp.substring(6,8)}</span>` : ''}
+                                            </div>
+                                        `).join('')}
+                                    `;
+                                } else {
+                                    document.getElementById('searchResults').innerHTML = `
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle me-2"></i>
+                                            沒有找到相關文檔
+                                        </div>
+                                    `;
+                                }
+                                
+                                // 綁定點擊事件
+                                document.querySelectorAll('.document-link').forEach(link => {
+                                    link.addEventListener('click', async (e) => {
+                                        e.preventDefault();
+                                        const originalFilename = e.target.dataset.originalFilename;
+                                        const chunkId = parseInt(e.target.dataset.chunkId);
+                                        
+                                        if (isNaN(chunkId)) {
+                                            alert('無法獲取文檔段落信息');
+                                            return;
+                                        }
+                                        
+                                        try {
+                                            const response = await fetch(`/api/document_content/${encodeURIComponent(originalFilename)}?chunk_id=${chunkId}`);
+                                            const docData = await response.json();
+
+                                            if (response.ok) {
+                                                document.getElementById('documentModalLabel').innerText = `文檔內容: ${originalFilename} (段落 ${chunkId})`;
+                                                const contentDiv = document.getElementById('documentContent');
+                                                contentDiv.innerHTML = ''; // 清空現有內容
+
+                                                // 創建文檔類型標籤
+                                                const fileTypeBadge = document.createElement('span');
+                                                fileTypeBadge.className = 'badge bg-info mb-3';
+                                                fileTypeBadge.textContent = `文件類型: ${docData.file_type}`;
+                                                contentDiv.appendChild(fileTypeBadge);
+
+                                                // 顯示段落內容
+                                                const contentPre = document.createElement('pre');
+                                                contentPre.style.whiteSpace = 'pre-wrap';
+                                                contentPre.style.wordWrap = 'break-word';
+                                                contentPre.textContent = docData.content;
+                                                contentDiv.appendChild(contentPre);
+
+                                                const documentModal = new bootstrap.Modal(document.getElementById('documentModal'));
+                                                documentModal.show();
+                                            } else {
+                                                alert(docData.error || '獲取文檔內容失敗');
+                                            }
+                                        } catch (error) {
+                                            alert(`加載文檔內容時發生錯誤: ${error.message}`);
+                                        }
+                                    });
+                                });
+                                
+                                // 立即顯示篩選步驟的初始提示
+                                document.getElementById('filterStep').classList.add('active');
+                                document.getElementById('filterResults').innerHTML = `
+                                    <div class="mb-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-robot text-primary me-2"></i>
+                                            <small class="text-muted">Agent: 開始分析文檔相關性...</small>
+                                        </div>
+                                    </div>
+                                `;
+                                break;
+                                
+                            case 'filter':
+                                // 更新篩選結果，保留初始提示
+                                const initialFilterMessage = document.getElementById('filterResults').innerHTML;
+                                document.getElementById('filterResults').innerHTML = `
+                                    ${initialFilterMessage}
+                                    <div class="mb-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-robot text-primary me-2"></i>
+                                            <small class="text-muted">Agent: ${data.results.length > 0 ? '根據相關性分析，以下文檔最適合回答您的問題：' : '沒有找到足夠相關的文檔'}</small>
+                                        </div>
+                                    </div>
+                                    ${data.results.length > 0 ? `
+                                    <div class="ms-4">
+                                        ${data.results.map((doc, index) => `
+                                            <div class="d-flex align-items-center mb-2">
+                                                <div class="me-2">
+                                                    <span class="badge bg-primary rounded-circle">${index + 1}</span>
+                                                </div>
+                                                <i class="bi bi-file-earmark-text file-icon"></i>
+                                                <a href="#" class="filter-interaction-link" 
+                                                   data-filename="${doc.original_filename}"
+                                                   data-chunk-id="${doc.chunk_id}">${doc.original_filename}</a>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    ` : ''}
+                                `;
+                                
+                                // 綁定篩選交互點擊事件
+                                document.querySelectorAll('.filter-interaction-link').forEach(link => {
+                                    link.addEventListener('click', async (e) => {
+                                        e.preventDefault();
+                                        const filename = e.target.dataset.filename;
+                                        const chunkId = parseInt(e.target.dataset.chunkId);
+                                        
+                                        if (!currentTaskId) {
+                                            alert('無法獲取任務信息');
+                                            return;
+                                        }
+                                        
+                                        try {
+                                            const response = await fetch(`/api/filter_interaction/${encodeURIComponent(filename)}?chunk_id=${chunkId}&task_id=${currentTaskId}`);
+                                            const interactionData = await response.json();
+
+                                            if (response.ok) {
+                                                document.getElementById('filterInteractionModalLabel').innerText = `篩選交互過程: ${filename} (段落 ${chunkId})`;
+                                                const contentDiv = document.getElementById('filterInteractionContent');
+                                                contentDiv.innerHTML = ''; // 清空現有內容
+
+                                                // 顯示相關性狀態
+                                                const relevanceBadge = document.createElement('span');
+                                                relevanceBadge.className = `badge ${interactionData.is_relevant ? 'bg-success' : 'bg-danger'} mb-3`;
+                                                relevanceBadge.textContent = interactionData.is_relevant ? '相關' : '不相關';
+                                                contentDiv.appendChild(relevanceBadge);
+
+                                                // 顯示交互訊息
+                                                interactionData.messages.forEach((message, index) => {
+                                                    const messageDiv = document.createElement('div');
+                                                    messageDiv.className = 'mb-3 p-3 border rounded';
+                                                    messageDiv.style.backgroundColor = message.role === 'user' ? '#f8f9fa' : '#e3f2fd';
+                                                    
+                                                    // 處理AI回答中的CoT部分
+                                                    if (message.role === 'assistant') {
+                                                        const processedContent = processFilterInteractionContent(message.content);
+                                                        messageDiv.innerHTML = `
+                                                            <span class="badge bg-success mb-2">DocumentFilter Agent分析</span>
+                                                            ${processedContent}
+                                                        `;
+                                                    } else {
+                                                        messageDiv.innerHTML = `
+                                                            <span class="badge bg-primary mb-2">User Agent詢問</span>
+                                                            <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${message.content}</pre>
+                                                        `;
+                                                    }
+                                                    
+                                                    contentDiv.appendChild(messageDiv);
+                                                });
+
+                                                const filterInteractionModal = new bootstrap.Modal(document.getElementById('filterInteractionModal'));
+                                                filterInteractionModal.show();
+                                            } else {
+                                                alert(interactionData.error || '獲取篩選交互訊息失敗');
+                                            }
+                                        } catch (error) {
+                                            alert(`加載篩選交互訊息時發生錯誤: ${error.message}`);
+                                        }
+                                    });
+                                });
+                                
+                                // 更新篩選步驟的狀態
+                                document.getElementById('filterStep').classList.remove('active');
+                                document.getElementById('filterStep').classList.add('completed');
+                                
+                                // 立即顯示生成答案的提示
+                                document.getElementById('answerStep').classList.add('active');
+                                document.getElementById('answerResult').innerHTML = `
+                                    <div class="mb-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-robot text-primary me-2"></i>
+                                            <small class="text-muted">Agent: 正在根據相關文檔生成答案...</small>
+                                        </div>
+                                    </div>
+                                `;
+                                break;
+                                
+                            case 'filter_progress':
+                                // 更新篩選進度
+                                const filterResults = document.getElementById('filterResults');
+                                const progressDiv = document.createElement('div');
+                                progressDiv.className = 'mb-3 filter-progress';
+                                progressDiv.innerHTML = `
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="bi bi-robot text-primary me-2"></i>
+                                        <small class="text-muted">Agent: ${data.current_doc.progress}</small>
+                                    </div>
+                                    <div class="ms-4">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-file-earmark-text file-icon"></i>
+                                            <span>${data.current_doc.original_filename}</span>
+                                            <div class="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                filterResults.appendChild(progressDiv);
+                                break;
+
+                            case 'filter_thought':
+                                // 添加思考過程
+                                const thoughtDiv = document.createElement('div');
+                                thoughtDiv.className = 'mb-3 filter-thought';
+                                thoughtDiv.innerHTML = `
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="bi bi-lightbulb text-warning me-2"></i>
+                                        <small class="text-muted">思考過程: ${data.thought}</small>
+                                    </div>
+                                `;
+                                document.getElementById('filterResults').appendChild(thoughtDiv);
+                                break;
+
+                            case 'filter_result':
+                                // 更新篩選結果
+                                const resultDiv = document.createElement('div');
+                                resultDiv.className = 'mb-3 filter-result';
+                                const isRelevant = data.result.is_relevant;
+                                resultDiv.innerHTML = `
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="bi ${isRelevant ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'} me-2"></i>
+                                        <span>${data.result.filename}</span>
+                                        <small class="text-muted ms-2">${data.result.thought}</small>
+                                    </div>
+                                `;
+                                document.getElementById('filterResults').appendChild(resultDiv);
+                                
+                                // 移除該文檔的進度顯示中的 spinner
+                                const progressElements = document.querySelectorAll('.filter-progress');
+                                if (progressElements.length > 0) {
+                                    const lastProgress = progressElements[progressElements.length - 1];
+                                    const spinner = lastProgress.querySelector('.spinner-border');
+                                    if (spinner) {
+                                        spinner.remove();
+                                    }
+                                }
+                                
+                                // 移除對應的思考過程提示
+                                const thoughtElements = document.querySelectorAll('.filter-thought');
+                                if (thoughtElements.length > 0) {
+                                    const lastThought = thoughtElements[thoughtElements.length - 1];
+                                    lastThought.remove();
+                                }
+                                break;
+                                
+                            case 'answer':
+                                // 更新答案步驟
+                                document.getElementById('answerStep').classList.remove('active');
+                                document.getElementById('answerStep').classList.add('completed');
+                                document.getElementById('answerResult').innerHTML = `
+                                    <div class="alert alert-success markdown-content">
+                                        ${processAnswer(data.answer)}
+                                    </div>
+                                `;
+                                
+                                // 完成所有步驟，關閉 EventSource
+                                currentEventSource.close();
+                                
+                                // 重新啟用輸入框、按鈕和時間區間選擇器
+                                questionTextarea.disabled = false;
+                                submitBtn.disabled = false;
+                                $('#dateRange').prop('disabled', false);
+                                break;
+                                
+                            case 'error':
+                                document.getElementById('searchStep').classList.remove('active');
+                                document.getElementById('searchStep').classList.add('completed');
+                                document.getElementById('searchResults').innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        ${data.message || '處理過程中發生錯誤'}
+                                    </div>
+                                `;
+                                currentEventSource.close();
+                                // 重新啟用輸入框、按鈕和時間區間選擇器
+                                questionTextarea.disabled = false;
+                                submitBtn.disabled = false;
+                                $('#dateRange').prop('disabled', false);
+                                break;
+                        }
+                    };
+                    
+                    currentEventSource.onerror = (error) => {
+                        console.error('EventSource failed:', error);
+                        if (currentEventSource) {
+                            currentEventSource.close();
+                            currentEventSource = null;
+                        }
+                        // 重新啟用輸入框、按鈕和時間區間選擇器
+                        questionTextarea.disabled = false;
+                        submitBtn.disabled = false;
+                        $('#dateRange').prop('disabled', false);
+                        throw new Error('與伺服器的連接發生錯誤');
+                    };
+                    
+                } catch (error) {
+                    alert(error.message);
+                    // 發生錯誤時也要重新啟用輸入框、按鈕和時間區間選擇器
+                    questionTextarea.disabled = false;
+                    submitBtn.disabled = false;
+                    $('#dateRange').prop('disabled', false);
+                }
+            });
+
+            // 添加處理答案的函數
+            function processAnswer(answer) {
+                // 處理 CoT 部分
+                const cotRegex = /<think>(.*?)<\/think>/gs;
+                let processedAnswer = answer;
+                let cotCount = 0;
+                
+                // 替換所有 CoT 部分
+                processedAnswer = processedAnswer.replace(cotRegex, (match, content) => {
+                    cotCount++;
+                    // 將內容按段落分割並處理
+                    const paragraphs = content.split('\n').filter(p => p.trim());
+                    const formattedContent = paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+                    
+                    return `
+                        <div class="cot-section">
+                            <div class="cot-header" onclick="toggleCot(${cotCount})">
+                                <span><i class="bi bi-lightbulb"></i> 思考過程</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </div>
+                            <div class="cot-content" id="cot-${cotCount}">
+                                ${formattedContent}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // 處理剩餘的內容
+                const remainingContent = processedAnswer.replace(/<think>.*?<\/think>/gs, '').trim();
+                return marked.parse(remainingContent);
+            }
+            
+            // 添加處理篩選交互內容的函數
+            function processFilterInteractionContent(content) {
+                // 處理 CoT 部分
+                const cotRegex = /<think>(.*?)<\/think>/gs;
+                let cotCount = 0;
+                let cotSections = '';
+                
+                // 提取並處理所有 CoT 部分
+                content.replace(cotRegex, (match, thinkContent) => {
+                    cotCount++;
+                    // 將內容按段落分割並處理
+                    const paragraphs = thinkContent.split('\n').filter(p => p.trim());
+                    const formattedContent = paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+                    
+                    cotSections += `
+                        <div class="cot-section">
+                            <div class="cot-header" onclick="toggleCot('filter-${cotCount}')">
+                                <span><i class="bi bi-lightbulb"></i> 思考過程</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </div>
+                            <div class="cot-content" id="cot-filter-${cotCount}">
+                                ${formattedContent}
+                            </div>
+                        </div>
+                    `;
+                    return match; // 保持原樣，不替換
+                });
+                
+                // 處理剩餘的內容（RELEVANT/NOT_RELEVANT 部分）
+                const remainingContent = content.replace(/<think>.*?<\/think>/gs, '').trim();
+                
+                // 返回完整的HTML字符串
+                return `
+                    ${cotSections}
+                    <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${remainingContent}</pre>
+                `;
+            }
+            
+            // 配置 marked 選項
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false
+            });
+        });
+    </script>
+</body>
+</html> 

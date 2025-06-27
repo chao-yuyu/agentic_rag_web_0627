@@ -1,8 +1,8 @@
-# TSD AI 助手 - 智能技術支援文檔查詢系統
+# 智能文檔查詢系統 - AI RAG Web 應用
 
 ## 專案概述
 
-TSD AI 助手是一個基於 RAG (Retrieval-Augmented Generation) 技術的智能文檔查詢系統，專為東擎科技 (ASRock Industrial) 技術支援部門 (TSD) 設計。系統結合了文檔檢索、智能篩選和自動化回答生成，能夠快速從大量技術支援文檔中找到相關資訊並提供準確的答案。
+這是一個基於 RAG (Retrieval-Augmented Generation) 技術的智能文檔查詢系統。系統結合了文檔檢索、智能篩選和自動化回答生成，能夠快速從大量文檔中找到相關資訊並提供準確的答案。適用於企業知識庫管理、技術文檔查詢、客服支援等多種場景。
 
 ## 核心功能
 
@@ -110,12 +110,20 @@ pip install flask ollama autogen langchain pandas python-docx numpy scikit-learn
 # 安裝 Ollama
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# 下載所需模型
-ollama pull tsd_4500datas_summary20250606_epoch11_f32:latest
-ollama pull qwen3:30b
+# 下載所需模型（可根據需求選擇其他模型）
+ollama pull llama2:7b
+ollama pull nomic-embed-text
 ```
 
-### 4. 啟動服務
+### 4. 配置模型
+編輯 `agent_rag_0609.py` 文件，根據您的模型選擇進行配置：
+```python
+# 修改為您使用的模型
+self.embedding_model = "nomic-embed-text"
+self.llm_model = "llama2:7b"
+```
+
+### 5. 啟動服務
 ```bash
 # 使用啟動腳本
 python start_server.py
@@ -124,7 +132,7 @@ python start_server.py
 python app.py
 ```
 
-### 5. 訪問系統
+### 6. 訪問系統
 打開瀏覽器訪問：http://localhost:5000
 
 ## 使用指南
@@ -151,8 +159,8 @@ python app.py
 ```python
 # Ollama 配置
 self.base_url = "http://localhost:11434/v1"
-self.embedding_model = "tsd_4500datas_summary20250606_epoch11_f32:latest"
-self.llm_model = "qwen3:30b"  # 或 "gemma3:27b"
+self.embedding_model = "nomic-embed-text"  # 嵌入模型
+self.llm_model = "llama2:7b"  # 語言模型
 ```
 
 ### 系統配置 (`app.py`)
@@ -165,6 +173,18 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 ALLOWED_EXTENSIONS = {
     'txt', 'pdf', 'md', 'json', 'docx', 'doc', 'xlsx', 'xls'
 }
+```
+
+### 代理系統配置
+可以根據您的需求自定義代理的系統提示詞：
+```python
+# 文檔篩選代理提示詞
+system_message = """您是專業的文檔篩選專家。您的任務是:
+1. 仔細閱讀提供的文檔內容
+2. 精確判斷文檔是否與用戶查詢相關
+3. 如果相關，返回 "RELEVANT: [相關原因]"
+4. 如果不相關，返回 "NOT_RELEVANT: [不相關原因]"
+"""
 ```
 
 ## API 文檔
@@ -247,6 +267,10 @@ ollama pull <model-name>
 - 確認文件權限
 - 查看錯誤日誌
 
+#### 5. 中文處理問題
+- 確保安裝了 opencc-python-reimplemented
+- 檢查文檔編碼格式
+
 ### 日誌查看
 系統運行時會在控制台輸出詳細日誌，包括：
 - 查詢請求信息
@@ -276,35 +300,69 @@ agentic_rag_web_0627/
 ```
 
 ### 擴展開發
-1. **添加新的文檔格式支援**
-   - 在 `agent_rag_0609.py` 中添加處理函數
-   - 更新 `ALLOWED_EXTENSIONS`
 
-2. **自定義 AI 代理**
-   - 修改 `setup_agents()` 方法
-   - 調整代理的系統提示
+#### 1. 添加新的文檔格式支援
+```python
+# 在 agent_rag_0609.py 中添加處理函數
+def add_new_format_document(self, file_path: str):
+    # 實現新格式的處理邏輯
+    pass
 
-3. **優化向量搜索**
-   - 改進 `JSONVectorDB` 類
-   - 添加更多搜索策略
+# 更新允許的文件擴展名
+ALLOWED_EXTENSIONS.add('new_format')
+```
+
+#### 2. 自定義 AI 代理
+```python
+# 修改 setup_agents() 方法
+def setup_agents(self):
+    self.custom_agent = autogen.AssistantAgent(
+        name="CustomAgent",
+        llm_config=self.llm_config,
+        system_message="自定義代理的系統提示詞"
+    )
+```
+
+#### 3. 優化向量搜索
+```python
+# 改進 JSONVectorDB 類
+class JSONVectorDB:
+    def advanced_search(self, query, filters=None):
+        # 實現高級搜索功能
+        pass
+```
+
+## 應用場景
+
+- **企業知識庫**: 快速檢索企業內部文檔和知識
+- **技術支援**: 自動回答技術問題和故障排除
+- **客服系統**: 智能客服機器人的知識後端
+- **研究助手**: 學術文獻和研究資料的智能檢索
+- **法律諮詢**: 法律條文和案例的快速查詢
+- **醫療資訊**: 醫學文獻和診療指南的檢索
 
 ## 貢獻指南
 
 1. Fork 專案
-2. 創建功能分支
-3. 提交變更
-4. 創建 Pull Request
+2. 創建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交變更 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 創建 Pull Request
 
 ## 授權協議
 
-本專案採用 MIT 授權協議。
+本專案採用 MIT 授權協議。詳見 [LICENSE](LICENSE) 文件。
 
-## 聯繫方式
+## 致謝
 
-如有問題或建議，請聯繫技術支援團隊。
+感謝以下開源專案的支持：
+- [AutoGen](https://github.com/microsoft/autogen)
+- [Ollama](https://ollama.ai/)
+- [LangChain](https://langchain.com/)
+- [Flask](https://flask.palletsprojects.com/)
 
 ---
 
 **版本**: 1.0.0  
-**最後更新**: 2024年12月  
-**維護者**: TSD Team 
+**最後更新**: 2025年06月  
+**維護者**: 開發團隊 

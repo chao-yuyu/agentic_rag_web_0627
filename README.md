@@ -163,61 +163,6 @@ self.embedding_model = "nomic-embed-text"  # 嵌入模型
 self.llm_model = "llama2:7b"  # 語言模型
 ```
 
-### 系統配置 (`app.py`)
-```python
-# 文件上傳配置
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
-
-# 支援的文件類型
-ALLOWED_EXTENSIONS = {
-    'txt', 'pdf', 'md', 'json', 'docx', 'doc', 'xlsx', 'xls'
-}
-```
-
-### 代理系統配置
-可以根據您的需求自定義代理的系統提示詞：
-```python
-# 文檔篩選代理提示詞
-system_message = """您是專業的文檔篩選專家。您的任務是:
-1. 仔細閱讀提供的文檔內容
-2. 精確判斷文檔是否與用戶查詢相關
-3. 如果相關，返回 "RELEVANT: [相關原因]"
-4. 如果不相關，返回 "NOT_RELEVANT: [不相關原因]"
-"""
-```
-
-## API 文檔
-
-### 主要 API 端點
-
-#### 文檔查詢
-```
-GET /api/query/stream?question=<query>&date_range=<range>
-```
-- 實時流式查詢
-- 返回 SSE 格式數據
-
-#### 文檔上傳
-```
-POST /api/upload
-Content-Type: multipart/form-data
-```
-
-#### 文檔管理
-```
-GET /api/documents          # 獲取文檔列表
-DELETE /api/documents/<filename>  # 刪除文檔
-DELETE /api/documents/batch      # 批量刪除
-```
-
-#### 歷史查詢
-```
-GET /api/history/list       # 獲取歷史列表
-GET /api/history/<id>       # 獲取歷史詳情
-DELETE /api/history/<id>    # 刪除歷史
-```
-
 ## 測試指南
 
 ### 自動化測試

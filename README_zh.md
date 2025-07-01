@@ -67,7 +67,7 @@
 ## 技術棧
 
 ### 後端技術
-- **Python 3.x**: 主要開發語言
+- **Python 3.11**: 主要開發語言
 - **Flask**: Web 框架
 - **AutoGen**: 多代理協作框架
 - **Ollama**: 本地 LLM 服務
@@ -102,7 +102,7 @@ cd agentic_rag_web_0627
 
 ### 2. 安裝依賴
 ```bash
-pip install flask ollama autogen langchain pandas python-docx numpy scikit-learn opencc-python-reimplemented
+pip install -r requirements.txt
 ```
 
 ### 3. 配置 Ollama

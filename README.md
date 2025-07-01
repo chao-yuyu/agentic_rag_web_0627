@@ -67,7 +67,7 @@ This is an intelligent document query system based on RAG (Retrieval-Augmented G
 ## Technology Stack
 
 ### Backend Technologies
-- **Python 3.x**: Primary development language
+- **Python 3.11**: Primary development language
 - **Flask**: Web framework
 - **AutoGen**: Multi-agent collaboration framework
 - **Ollama**: Local LLM service
@@ -89,7 +89,7 @@ This is an intelligent document query system based on RAG (Retrieval-Augmented G
 ## Installation and Deployment
 
 ### System Requirements
-- Python 3.8+
+- Python 3.11+
 - Ollama service
 - 8GB+ RAM (recommended)
 - 10GB+ disk space
@@ -102,7 +102,7 @@ cd agentic_rag_web_0627
 
 ### 2. Install Dependencies
 ```bash
-pip install flask ollama autogen langchain pandas python-docx numpy scikit-learn opencc-python-reimplemented
+pip install -r requirements.txt
 ```
 
 ### 3. Configure Ollama

@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, Response
 import os
 from werkzeug.utils import secure_filename
-from agent_rag_0609 import CustomRAGAgentSystem
+from agent_rag import CustomRAGAgentSystem
 import uuid
 import json
 import time
@@ -15,6 +15,9 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
+# 歷史紀錄目錄
+HISTORY_DIR = 'history'
+
 # 修改任務管理系統：按IP分組
 # 結構: {ip: {task_id: task_data}}
 running_tasks_by_ip = {}
@@ -26,6 +29,8 @@ completed_task_lock = threading.Lock()
 
 # 確保上傳目錄存在
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# 確保歷史紀錄目錄存在
+os.makedirs(HISTORY_DIR, exist_ok=True)
 
 # 初始化RAG系統
 rag_system = CustomRAGAgentSystem(reset_db=False, db_path="./custom_json_rag_db")
@@ -761,7 +766,4 @@ def batch_delete_history():
 if __name__ == '__main__':
     # 設置 host='0.0.0.0' 使其監聽所有網絡接口
     # port=5000 是默認端口，可以根據需要修改
-    HISTORY_DIR = 'history'
-    if not os.path.exists(HISTORY_DIR):
-        os.makedirs(HISTORY_DIR, exist_ok=True)
     app.run(host='0.0.0.0', port=5000, debug=True) 

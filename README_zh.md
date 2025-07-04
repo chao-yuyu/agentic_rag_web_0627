@@ -116,7 +116,7 @@ ollama pull nomic-embed-text
 ```
 
 ### 4. 配置模型
-編輯 `agent_rag_0609.py` 文件，根據您的模型選擇進行配置：
+編輯 `agent_rag.py` 文件，根據您的模型選擇進行配置：
 ```python
 # 修改為您使用的模型
 self.embedding_model = "nomic-embed-text"
@@ -155,7 +155,7 @@ python app.py
 
 ## 配置說明
 
-### 模型配置 (`agent_rag_0609.py`)
+### 模型配置 (`agent_rag.py`)
 ```python
 # Ollama 配置
 self.base_url = "http://localhost:11434/v1"
@@ -229,7 +229,7 @@ ollama pull <model-name>
 ```
 agentic_rag_web_0627/
 ├── app.py                 # 主應用程序
-├── agent_rag_0609.py      # RAG 代理系統
+├── agent_rag.py      # RAG 代理系統
 ├── vector_db.py           # 向量數據庫
 ├── start_server.py        # 啟動腳本
 ├── test_multi_ip.py       # 測試腳本
@@ -248,7 +248,7 @@ agentic_rag_web_0627/
 
 #### 1. 添加新的文檔格式支援
 ```python
-# 在 agent_rag_0609.py 中添加處理函數
+# 在 agent_rag.py 中添加處理函數
 def add_new_format_document(self, file_path: str):
     # 實現新格式的處理邏輯
     pass

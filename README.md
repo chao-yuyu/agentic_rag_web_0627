@@ -116,7 +116,7 @@ ollama pull nomic-embed-text
 ```
 
 ### 4. Configure Models
-Edit the `agent_rag_0609.py` file and configure according to your model selection:
+Edit the `agent_rag.py` file and configure according to your model selection:
 ```python
 # Modify to use your chosen models
 self.embedding_model = "nomic-embed-text"
@@ -155,7 +155,7 @@ Open your browser and visit: http://localhost:5000
 
 ## Configuration
 
-### Model Configuration (`agent_rag_0609.py`)
+### Model Configuration (`agent_rag.py`)
 ```python
 # Ollama configuration
 self.base_url = "http://localhost:11434/v1"
@@ -229,7 +229,7 @@ The system outputs detailed logs to the console during runtime, including:
 ```
 agentic_rag_web_0627/
 ├── app.py                 # Main application
-├── agent_rag_0609.py      # RAG agent system
+├── agent_rag.py      # RAG agent system
 ├── vector_db.py           # Vector database
 ├── start_server.py        # Startup script
 ├── test_multi_ip.py       # Test script
@@ -248,7 +248,7 @@ agentic_rag_web_0627/
 
 #### 1. Adding New Document Format Support
 ```python
-# Add processing function in agent_rag_0609.py
+# Add processing function in agent_rag.py
 def add_new_format_document(self, file_path: str):
     # Implement new format processing logic
     pass
